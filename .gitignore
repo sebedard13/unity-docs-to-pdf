@@ -1,0 +1,11 @@
+# Project exclude paths
+/Manual/
+/ScriptReference/
+/StaticFiles/
+/StaticFilesManual/
+/uploads/
+
+out/*.html
+out/*.pdf
+
+.idea

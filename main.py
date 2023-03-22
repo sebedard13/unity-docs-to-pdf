@@ -1,9 +1,7 @@
 import json
 import os
-import string
 import time
 
-import attr
 from bs4 import BeautifulSoup
 from dominate import document
 from dominate.tags import *
@@ -102,31 +100,13 @@ def correctTitle(currentSection, deep=0, heading="", id=""):
 
 def correctImgSVG(currentSection):
     for img in currentSection.select("img[src$='.svg']"):
-        body = BeautifulSoup("<embed></embed>", features="lxml")
-        curr = body.find("embed")
-        if "alt" in img.attrs.keys():
-            curr.attrs["title"] = img.attrs["alt"]
-        if "src" in img.attrs.keys():
-            src = img.attrs["src"]
-            curr.attrs["src"] = src
-            src = src.replace("../", "")
-            with open(src, encoding="utf-8") as fp:
-                svgFile = BeautifulSoup(fp, features="lxml")
-            svgTag = svgFile.find("svg")
-            if "width" in svgTag.attrs.keys():
-                width_str = svgTag.attrs["width"]
-                tr_table = str.maketrans({c: None for c in string.ascii_letters})
-                width_str = width_str.translate(tr_table)
-                curr.attrs["width"] = width_str + "px"
-                if float(width_str) > 1200:
-                    # curr.attrs["width"] = str(1200)+ "px"
-                    scale_v = 1200 / float(width_str)
-                    curr.attrs["style"] = "transform: scale(" + str(scale_v) + ");"
-
-            if "height" in svgTag.attrs.keys():
-                curr.attrs["height"] = svgTag.attrs["height"] + "px"
-
-        img.replaceWith(curr)
+        src = img.attrs["src"].replace("../","")
+        output = src.replace(".svg", ".png")
+        if not os.path.exists(output):
+            process = subprocess.Popen(
+                "inkscape -z -f "+src+" -e "+output, shell=False)
+            process.wait()
+        img.attrs["src"] = "../"+output
 
     return currentSection
 
@@ -163,7 +143,17 @@ def correctCode(currentSection):
 
 def correctExternalLink(currentSection):
     for externalA in currentSection.select("a:not([href^= '#'])"):
-        externalA.attrs["target"]="_blank"
+        externalA.attrs["target"] = "_blank"
+        span = BeautifulSoup("<span></span>", features="lxml").find("span")
+
+        sup = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
+        sup.string = "[E]"
+        sup.attrs["class"] = "indice"
+
+        a = BeautifulSoup(str(externalA), features="lxml").find("a")
+        span.append(a)
+        span.append(sup)
+        externalA.replaceWith(span)
 
     return currentSection
 
@@ -204,12 +194,8 @@ def doPage(currentData, mainBody, heading, deep=0):
                 doPage(child, mainBody, newheading, deep + 1)
 
 
-def main_fn(jsonFile, outFileName="out"):
-    # Opening JSON file
+def generate_html(jsonFile, outFileName="out"):
     f = open(jsonFile)
-
-    # returns JSON object as
-    # a dictionary
     data = json.load(f)
 
     with document() as doc:
@@ -223,8 +209,8 @@ def main_fn(jsonFile, outFileName="out"):
 
     mainBody = appendHtml.select("main")[0]
 
-    # for i in range(0, len(data["children"])):
-    for i in range(0, 3):
+    for i in range(0, len(data["children"])):
+    # for i in range(0, 3):
         heading = str(i + 1)
         doPage(data["children"][i], mainBody, heading, 0)
 
@@ -242,8 +228,8 @@ def main_fn(jsonFile, outFileName="out"):
     print("Html Written")
 
 if __name__ == '__main__':
-    out = "out_sml"
-    main_fn(folder + "docdata/" + 'toc.json', out)
+    out = "out"
+    generate_html(folder + "docdata/" + 'toc.json', out)
 
     print("PDF Begin, Resolving links may take a really long time like 20 minutes on a i7-9750H")
     start_time = time.time()

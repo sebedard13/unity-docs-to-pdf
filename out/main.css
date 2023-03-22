@@ -2,7 +2,7 @@ body {
     font-family: Montserrat, serif ;
     line-height: 1.4;
     color: #0e0e0e;
-    font-size: 0.95rem;
+    font-size: 1.3rem;
     word-break: break-word;
 }
 
@@ -70,6 +70,7 @@ h4, h5, h6, h7 {
 
 table {
     border-collapse: collapse;
+    word-break: normal;
 }
 
 td, th, table {
@@ -122,9 +123,13 @@ a {
     font-size: 0.9em;
 }
 
-.tooltip .indice a {
+.indice {
     text-decoration: none !important;
-     font-size: 0.9em;
+    font-size: 0.9em;
+}
+
+.indice a {
+    text-decoration: none !important;
 }
 
 .tooltiptext .tooltipMoreInfoLink, .tooltiptext .tooltipGlossaryLink {}

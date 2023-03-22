@@ -1,111 +1,151 @@
-body{
-    font-family: Montserrat;
+body {
+    font-family: Montserrat, serif ;
     line-height: 1.4;
     color: #0e0e0e;
-    font-size: 1.5rem;
+    font-size: 0.95rem;
+    word-break: break-word;
 }
 
 
-
-li p{
+li p {
     margin: 0;
 }
 
-*{
+* {
     margin-bottom: 0;
 }
-p + p{
+
+p + p {
     margin-top: 0;
 }
 
-h1,h2,h3,h4,h5,h6,h7{
+h1, h2, h3, h4, h5, h6, h7 {
     font-weight: 900;
     border-bottom: solid 1px #0e0e0e;
     display: block;
 }
 
-pre{
-    white-space: break-spaces!important;
-}
 
-h1{
+
+h1 {
     break-before: page;
     page-break-before: always;
 }
 
-.section:first-of-type h1{
+.section:first-of-type h1 {
     break-before: avoid-page;
     page-break-before: avoid;
 }
 
-h1 + p,h2 + p,h3 + p,h4 + p,h5 + p,h6 + p,h7 + p{
-      break-before: avoid-page;
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, h7 + p {
+    break-before: avoid-page;
 }
 
-h7{
-     margin-top: 2.33em;
+h7 {
+    margin-top: 2.33em;
 }
-.h2, .h3,.h4,.h5,.h6 {
+
+.h2, .h3, .h4, .h5, .h6 {
     font-weight: 700;
     margin-top: 1em;
     margin-bottom: 0.25em;
 }
 
-h4, h5, h6, h7{
+.h3:before {
+    content: "-";
+}
+.h4:before{
+    content: "--";
+}
+.h5:before{
+    content: "---";
+}
+.h6:before {
+    content: "----";
+}
+
+h4, h5, h6, h7 {
     font-size: 1em;
 }
 
-table{
+table {
     border-collapse: collapse;
 }
-td,th,table{
+
+td, th, table {
     border: 1px solid #555;
 }
 
-ul{
+ul {
     margin-top: 0;
 }
 
-figure{
+figure {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
-img,embed{
+img, embed {
     width: fit-content;
     max-width: 100% !important;
 }
 
-.frontpage-section .h3{
+.frontpage-section .h3 {
     margin-top: 0;
 }
-.frontpage-section p:last-of-type{
+
+.frontpage-section p:last-of-type {
     margin-bottom: 0.8em;
 }
 
-code{
-    color: #2B2B2B;
-}
-
 a:empty {
-	display: block;
-	position: absolute;
+    display: block;
+    position: absolute;
 }
 
-a{
-	color:#0e0e0e !important;
-	text-decoration: none  !important;
+a {
+    color: #0e0e0e !important;
+    /*text-decoration: none !important;*/
 }
 
 .tooltiptext::before {
     content: " (";
 }
 
-.tooltiptext::after {content: ") ";}
-.tooltiptext { font-size: 0.9em;}
+.tooltiptext::after {
+    content: ") ";
+}
 
-.tooltiptext .tooltipMoreInfoLink, .tooltiptext .tooltipGlossaryLink{
-    display: none;
+.tooltiptext {
+    font-size: 0.9em;
+}
+
+.tooltip .indice a {
+    text-decoration: none !important;
+     font-size: 0.9em;
+}
+
+.tooltiptext .tooltipMoreInfoLink, .tooltiptext .tooltipGlossaryLink {}
+
+.empty-link{
+    font-size: 0.1em;
+}
+
+code{
+    font-family: "JetBrains Mono", 'Consolas', 'Menlo', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+     background-color: #2B2B2B;
+    color: #B8B9B8;
+}
+.pre-code{
+    font-family: "JetBrains Mono", 'Consolas', 'Menlo', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+     background-color: #2B2B2B;
+    color: #B8B9B8;
+    font-size: 0.9em;
+}
+
+pre {
+    white-space: break-spaces !important;
+
 }

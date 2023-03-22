@@ -1,6 +1,9 @@
 import json
 import os
 import string
+import time
+
+import attr
 from bs4 import BeautifulSoup
 from dominate import document
 from dominate.tags import *
@@ -9,14 +12,59 @@ import subprocess
 folder = "Manual/"
 
 
-def changeLink(currentSection):
+def changeLink(currentSection, currentSectionId):
+    # all link ending with href
+    for link in currentSection.select("a[href^='#']"):
+        href = link.attrs["href"]
+        id_section = os.path.basename(href)
+        id_section = id_section.replace("#", "")
+        link.attrs["href"] = "#" + currentSectionId+"-"+id_section
+
+    # all link ending with href
     for link in currentSection.select("a[href$='.html']"):
         href = link.attrs["href"]
-        if href:
-            if href.__contains__(".html"):
-                id_section = os.path.basename(href)
-                id_section = id_section.replace(".html", "")
-                link.attrs["href"] = "#" + id_section
+        if href.__contains__("https") or href.__contains__("http"):
+            continue
+
+        if href.__contains__("/"):
+            continue
+        id_section = os.path.basename(href)
+        id_section = id_section.replace(".html", "")
+        link.attrs["href"] = "#" + id_section
+
+    for link in currentSection.select("a[href*='.html#']"):
+        href = link.attrs["href"]
+        if href.__contains__("https") or href.__contains__("http"):
+            continue
+
+        if href.__contains__("/"):
+            continue
+
+        id_section = os.path.basename(href)
+        id_section = id_section.replace(".html#", "-")
+        link.attrs["href"] = "#" + id_section
+
+    for objId in currentSection.select("*[id]"):
+        id = objId.attrs["id"]
+        objId.attrs["id"] = currentSectionId + "-" + id
+
+    for objAName in currentSection.select("a[name]"):
+        name = objAName.attrs["name"]
+        objAName.attrs["id"] = currentSectionId + "-" + name
+        del objAName.attrs["name"]
+
+    for aEmpty in currentSection.select("p a:empty:only-child"):
+        parent = aEmpty.parent
+        parent.replaceWith(aEmpty)
+
+    for hWithPreviousLink in currentSection.select("a:empty + h1, a:empty + h2, a:empty + h3, a:empty + h4, a:empty + h5, a:empty + h6"):
+        sibling = hWithPreviousLink.find_previous_sibling("a")
+        hWithPreviousLink["id"] = sibling.attrs["id"]
+        sibling.decompose()
+
+    for aEmpty in currentSection.select("a:empty"):
+        aEmpty.attrs["class"]="empty-link"
+        aEmpty.string = "[L]"
 
     return currentSection
 
@@ -26,6 +74,8 @@ def correctTitle(currentSection, deep=0, heading="", id=""):
     for h in selections:
         body = BeautifulSoup("<p></p>", features="lxml")
         body.p.attrs['class'] = h.name
+        if "id" in h.attrs.keys():
+            body.p.attrs['id'] = h.attrs["id"]
         body.p.contents = h.contents
         h.replaceWith(body.p)
 
@@ -68,17 +118,56 @@ def correctImgSVG(currentSection):
                 tr_table = str.maketrans({c: None for c in string.ascii_letters})
                 width_str = width_str.translate(tr_table)
                 curr.attrs["width"] = width_str + "px"
-                if float(width_str)>1200:
+                if float(width_str) > 1200:
                     # curr.attrs["width"] = str(1200)+ "px"
-                    scale_v =1200/float(width_str)
-                    curr.attrs["style"] = "transform: scale("+str(scale_v)+");"
+                    scale_v = 1200 / float(width_str)
+                    curr.attrs["style"] = "transform: scale(" + str(scale_v) + ");"
 
             if "height" in svgTag.attrs.keys():
-                curr.attrs["height"] = svgTag.attrs["height"]+"px"
+                curr.attrs["height"] = svgTag.attrs["height"] + "px"
 
         img.replaceWith(curr)
 
     return currentSection
+
+
+def correctToolTip(currentSection):
+    for toolTip in currentSection.select(".tooltiptext"):
+        span = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
+        span.attrs["class"] = "indice"
+        select = toolTip.select("a")
+        for aElement in select:
+            if "href" in aElement.attrs.keys() and aElement.attrs["href"].__contains__("Glossary.html"):
+                a = BeautifulSoup("<a>[G]</a>", features="lxml").find("a")
+                a.attrs = aElement.attrs
+                span.append(a)
+            else:
+                a = BeautifulSoup("<a>[M]</a>", features="lxml").find("a")
+                a.attrs = aElement.attrs
+                span.append(a)
+        toolTip.replaceWith(span)
+
+    return currentSection
+
+
+def correctCode(currentSection):
+    for code in currentSection.select("pre code"):
+        pre = code.parent
+        if("class" in  pre.attrs.keys()):
+            pre.attrs["class"].append("pre-code")
+        else:
+            pre.attrs["class"] = "pre-code"
+
+    return currentSection
+
+
+def correctExternalLink(currentSection):
+    for externalA in currentSection.select("a:not([href^= '#'])"):
+        externalA.attrs["target"]="_blank"
+
+    return currentSection
+
+
 def doPage(currentData, mainBody, heading, deep=0):
     if "link" in currentData.keys():
         l = currentData["link"]
@@ -92,12 +181,16 @@ def doPage(currentData, mainBody, heading, deep=0):
 
     currentSection = d.select(".content-block .section")[0]
     for bad in currentSection.select(
-            ".breadcrumbs, .mb20, #_leavefeedback, .clear, #_content, a:empty, .tooltiptext br"):
+            ".breadcrumbs, .mb20, #_leavefeedback, .clear, #_content, .tooltiptext br"):
         bad.decompose()
 
-    currentSection = changeLink(currentSection)
+    currentSection = correctToolTip(currentSection)
+    currentSection = changeLink(currentSection, currentData["link"])
+    currentSection = correctExternalLink(currentSection)
     currentSection = correctTitle(currentSection, deep, heading, currentData["link"])
     currentSection = correctImgSVG(currentSection)
+    currentSection = correctCode(currentSection)
+
 
     mainBody.append(currentSection)
 
@@ -130,11 +223,14 @@ def main_fn(jsonFile, outFileName="out"):
 
     mainBody = appendHtml.select("main")[0]
 
-    i = 0
-    for child in data["children"]:
-        i = i + 1
-        heading = str(i)
-        doPage(child, mainBody, heading, 0)
+    # for i in range(0, len(data["children"])):
+    for i in range(0, 3):
+        heading = str(i + 1)
+        doPage(data["children"][i], mainBody, heading, 0)
+
+    # For glossary when doing part of docs
+    # heading = str(len(data["children"]))
+    # doPage(data["children"][len(data["children"])-1], mainBody, heading, 0)
     print("Html Done")
 
     with document(title=data["title"]) as doc:
@@ -145,13 +241,14 @@ def main_fn(jsonFile, outFileName="out"):
         f.write(doc.render(pretty=False))
     print("Html Written")
 
-
 if __name__ == '__main__':
-    out = "out"
+    out = "out_sml"
     main_fn(folder + "docdata/" + 'toc.json', out)
 
+    print("PDF Begin, Resolving links may take a really long time like 20 minutes on a i7-9750H")
+    start_time = time.time()
     process = subprocess.Popen(
-        'wkhtmltopdf out/' + out + '.html --disable-internal-links -n --print-media-type --disable-toc-back-links --enable-local-file-access --encoding utf-8 out/' + out + '.pdf',
+        'wkhtmltopdf out/' + out + '.html -n --print-media-type --disable-toc-back-links --enable-local-file-access --encoding utf-8 out/' + out + '.pdf',
         shell=False)
     process.wait()
-    print(process.returncode)
+    print("PDF end in %s seconds" % (time.time() - start_time))

@@ -20,25 +20,30 @@ def check_links(html, folder_path="", id_map=None) -> list[str]:
         id_map = []
 
     bad_href = []
+    done_href = []
     for a_element in html.select("a[href]"):
         href = a_element.attrs["href"]
 
-        if href.startswith("#"):
-            if not href.removeprefix("#") in id_map:
-                bad_href.append(href)
-
-        elif href.startswith("http"):
-            try:
-                r = requests.head(href)
-                if 400 <= r.status_code < 500:
+        if href not in done_href:
+            done_href.append(href)
+            if href.startswith("#"):
+                if not href.removeprefix("#") in id_map:
                     bad_href.append(href)
-            except requests.ConnectionError:
+
+            elif href.startswith("http"):
+                pass
+                # try:
+                #     r = requests.head(href)
+                #     if 400 <= r.status_code < 500:
+                #         bad_href.append(href)
+                # except requests.ConnectionError:
+                #     bad_href.append(href)
+                # pass
+            elif href.startswith("mailto:"):
+                pass
+            else:
+                # I guess a file to found
                 bad_href.append(href)
-            pass
-        else:
-            # I guess a file to found
-            filename = os.path.join(folder_path, href)
-            bad_href.append(filename)
 
     return bad_href
 
@@ -53,10 +58,15 @@ if __name__ == '__main__':
 
     id_map, id_map_doublon = check_id(html)
 
+
     for id_doublon in id_map_doublon:
         print("Id doublon", id_doublon)
 
     bad_href = check_links(html, id_map=id_map, folder_path=folder_path)
 
+    bad_href.sort()
+
     for href in bad_href:
         print("Bad link", href)
+
+    print("Doublons", len(id_map_doublon), "Bad links", len(bad_href))

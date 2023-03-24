@@ -1,188 +1,46 @@
 import json
-import os
 import time
-
 from bs4 import BeautifulSoup
 from dominate import document
 from dominate.tags import *
 import subprocess
 
+import parser_correct
+
 folder = "Manual/"
-
-
-def change_link(current_section, current_section_id):
-    # all link ending with href
-    for link in current_section.select("a[href^='#']"):
-        href = link.attrs["href"]
-        id_section = os.path.basename(href)
-        id_section = id_section.replace("#", "")
-        link.attrs["href"] = "#" + current_section_id + "-" + id_section
-
-    # all link ending with href
-    for link in current_section.select("a[href$='.html']"):
-        href = link.attrs["href"]
-        if href in "https" or href in "http":
-            continue
-
-        if href in "/":
-            continue
-        id_section = os.path.basename(href)
-        id_section = id_section.replace(".html", "")
-        link.attrs["href"] = "#" + id_section
-
-    for link in current_section.select("a[href*='.html#']"):
-        href = link.attrs["href"]
-        if href in "https" or href in "http":
-            continue
-
-        if href in "/":
-            continue
-
-        id_section = os.path.basename(href)
-        id_section = id_section.replace(".html#", "-")
-        link.attrs["href"] = "#" + id_section
-
-    for objId in current_section.select("*[id]"):
-        id_attr = objId.attrs["id"]
-        objId.attrs["id"] = current_section_id + "-" + id_attr
-
-    for objAName in current_section.select("a[name]"):
-        name = objAName.attrs["name"]
-        objAName.attrs["id"] = current_section_id + "-" + name
-        del objAName.attrs["name"]
-
-    for aEmpty in current_section.select("p a:empty:only-child"):
-        parent = aEmpty.parent
-        parent.replaceWith(aEmpty)
-
-    for hWithPreviousLink in current_section.select(
-            "a:empty + h1, a:empty + h2, a:empty + h3, a:empty + h4, a:empty + h5, a:empty + h6"):
-        sibling = hWithPreviousLink.find_previous_sibling("a")
-        hWithPreviousLink["id"] = sibling.attrs["id"]
-        sibling.decompose()
-
-    for aEmpty in current_section.select("a:empty"):
-        aEmpty.attrs["class"] = "empty-link"
-        aEmpty.string = "[L]"
-
-    return current_section
-
-
-def correct_title(current_section, deep=0, heading="", id_section=""):
-    selections = current_section.select("h2, h3, h4, h5, h6")
-    for h in selections:
-        body = BeautifulSoup("<p></p>", features="lxml")
-        body.p.attrs['class'] = h.name
-        if "id" in h.attrs.keys():
-            body.p.attrs['id'] = h.attrs["id"]
-        body.p.contents = h.contents
-        h.replaceWith(body.p)
-
-    current_section = BeautifulSoup(str(current_section), features="lxml")
-
-    selectionsh1 = current_section.select("h1")
-    idDone = False
-    tag = "h" + str(deep + 1)
-    for h in selectionsh1:
-        body = BeautifulSoup("<" + tag + "></" + tag + ">", features="lxml")
-        curr = body.find(tag)
-        if not idDone:
-            curr.attrs["id"] = id_section
-            curr.contents = h.contents
-            curr.string = heading + " " + curr.text
-            tag = "h" + str(deep + 2)
-            idDone = True
-        else:
-            curr.contents = h.contents
-        h.replaceWith(curr)
-
-    return current_section.select(".section")[0]
-
-
-def correct_img_svg(current_section):
-    for img in current_section.select("img[src$='.svg']"):
-        src = img.attrs["src"].replace("../", "")
-        output = src.replace(".svg", ".png")
-        if not os.path.exists(output):
-            process = subprocess.Popen(
-                "inkscape -z -f " + src + " -e " + output, shell=False)
-            process.wait()
-        img.attrs["src"] = "../" + output
-
-    return current_section
-
-
-def correct_tool_tip(current_section):
-    for toolTip in current_section.select(".tooltiptext"):
-        span = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
-        span.attrs["class"] = "indice"
-        select = toolTip.select("a")
-        for aElement in select:
-            if "href" in aElement.attrs.keys() and aElement.attrs["href"] in "Glossary.html":
-                a = BeautifulSoup("<a>[G]</a>", features="lxml").find("a")
-                a.attrs = aElement.attrs
-                span.append(a)
-            else:
-                a = BeautifulSoup("<a>[M]</a>", features="lxml").find("a")
-                a.attrs = aElement.attrs
-                span.append(a)
-        toolTip.replaceWith(span)
-
-    return current_section
-
-
-def correct_code(current_section):
-    for code in current_section.select("pre code"):
-        pre = code.parent
-        if "class" in pre.attrs.keys():
-            pre.attrs["class"].append("pre-code")
-        else:
-            pre.attrs["class"] = "pre-code"
-
-    return current_section
-
-
-def correct_external_link(current_section):
-    for externalA in current_section.select("a:not([href^= '#'])"):
-        externalA.attrs["target"] = "_blank"
-        span = BeautifulSoup("<span></span>", features="lxml").find("span")
-
-        sup = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
-        sup.string = "[E]"
-        sup.attrs["class"] = "indice"
-
-        a = BeautifulSoup(str(externalA), features="lxml").find("a")
-        span.append(a)
-        span.append(sup)
-        externalA.replaceWith(span)
-
-    return current_section
 
 
 def do_page(current_data, main_body, heading, deep=0):
     if "link" in current_data.keys():
         link = current_data["link"]
         if link is None or link == "null":
-            return
+            # Some link does not have a html file but are a parent to multiples children.
+            # Create a section with only the title inside
+            current_section = BeautifulSoup("<div><h1>" + current_data["title"] + "</h1></div>", features="lxml").find(
+                "div")
+            current_section.attrs["class"] = "section"
 
-    filename = folder + current_data["link"] + ".html"
+            current_section = parser_correct.title(current_section, deep, heading)
 
-    with open(filename, encoding="utf-8") as fp:
-        d = BeautifulSoup(fp, features="lxml")
+            main_body.append(current_section)
+            pass
+        else:
+            filename = folder + link + ".html"
 
-    currentSection = d.select(".content-block .section")[0]
-    for bad in currentSection.select(
-            ".breadcrumbs, .mb20, #_leavefeedback, .clear, #_content, .tooltiptext br"):
-        bad.decompose()
+            with open(filename, encoding="utf-8") as fp:
+                d = BeautifulSoup(fp, features="lxml")
 
-    currentSection = correct_tool_tip(currentSection)
-    currentSection = change_link(currentSection, current_data["link"])
-    currentSection = correct_external_link(currentSection)
-    currentSection = correct_title(currentSection, deep, heading, current_data["link"])
-    currentSection = correct_img_svg(currentSection)
-    currentSection = correct_code(currentSection)
+            current_section = d.select(".content-block .section")[0]
 
-    main_body.append(currentSection)
+            current_section = parser_correct.bad_elements(current_section)
+            current_section = parser_correct.tooltip(current_section)
+            current_section = parser_correct.links(current_section, link)
+            current_section = parser_correct.external_links(current_section)
+            current_section = parser_correct.title(current_section, deep, heading, link)
+            current_section = parser_correct.img_svg(current_section)
+            current_section = parser_correct.code(current_section)
+
+            main_body.append(current_section)
 
     if "children" in current_data.keys():
         children = current_data["children"]
@@ -194,48 +52,114 @@ def do_page(current_data, main_body, heading, deep=0):
                 do_page(child, main_body, newheading, deep + 1)
 
 
-def generate_html(json_file, out_file_name="out"):
+def generate_html(json_file, out_filename="out", starts=0, ends=-1):
     f = open(json_file)
+    print("Load table of content")
     data = json.load(f)
 
     with document() as doc:
         main()
 
-    with open('out/' + out_file_name + '.html', 'w', encoding="utf-8") as f:
+    with open('out/' + out_filename + '.html', 'w', encoding="utf-8") as f:
         f.write(doc.render())
 
-    with open('out/' + out_file_name + '.html', encoding="utf-8") as fp:
+    with open('out/' + out_filename + '.html', encoding="utf-8") as fp:
         appendHtml = BeautifulSoup(fp, features="lxml")
 
     mainBody = appendHtml.select("main")[0]
 
-    for i in range(0, len(data["children"])):
-        # for i in range(0, 3):
+    if ends<starts or ends> len(data["children"]):
+        ends = len(data["children"])
+
+    print("Begin Html")
+    for i in range(starts, ends):
         heading = str(i + 1)
         do_page(data["children"][i], mainBody, heading, 0)
-
-    # For glossary when doing part of docs
-    # heading = str(len(data["children"]))
-    # doPage(data["children"][len(data["children"])-1], mainBody, heading, 0)
     print("Html Done")
 
     with document(title=data["title"]) as doc:
         doc.head.add_raw_string("<link rel='stylesheet' href='main.css'>")
         doc.body.add_raw_string(str(mainBody))
 
-    with open('out/' + out_file_name + '.html', 'w', encoding="utf-8") as f:
+    with open('out/' + out_filename + '.html', 'w', encoding="utf-8") as f:
         f.write(doc.render(pretty=False))
     print("Html Written")
 
 
-if __name__ == '__main__':
-    out = "out"
-    generate_html(folder + "docdata/" + 'toc.json', out)
+def correct_bad_links(filename_in, filename_out=""):
+    if filename_out=="":
+        filename_out = filename_in
 
+    with open("out/" + filename_in + ".html", encoding="utf-8") as fp:
+        html = BeautifulSoup(fp, features="html.parser")
+
+    id_map = []
+    for elementId in html.select("*[id]"):
+        if elementId.attrs["id"] not in id_map:
+            id_map.append(elementId.attrs["id"])
+
+    bad_href = []
+    done_href = []
+    for a_element in html.select("a[href]"):
+        href = a_element.attrs["href"]
+
+        if href not in done_href:
+            done_href.append(href)
+            if href.startswith("#"):
+                if not href.removeprefix("#") in id_map:
+                    bad_href.append(href)
+
+            elif href.startswith("http"):
+                pass
+            elif href.startswith("mailto:"):
+                pass
+            else:
+                # I guess a file to found or a link to a page
+                bad_href.append(href)
+
+    for href in bad_href:
+        for bad_a in html.select("a[href='" + href + "']"):
+            bad_a.name = "span"
+            bad_a.attrs["class"] = "bad-link"
+            del bad_a["href"]
+
+    with open('out/' + filename_out + '.html', 'w', encoding="utf-8") as f:
+        f.write(str(html))
+    print(len(bad_href), "Bad links corrected")
+
+
+def generate_pdf(filename):
     print("PDF Begin, Resolving links may take a really long time like 20 minutes on a i7-9750H")
+    command_args = [
+        "-n",
+        "--print-media-type",
+        "--disable-toc-back-links",
+        # "--disable-internal-links",
+        # "--disable-external-links",
+        "--enable-local-file-access",
+        "--encoding utf-8"
+    ]
     start_time = time.time()
+
+    command = 'wkhtmltopdf out/' + filename + '.html'
+
+    for arg in command_args:
+        command = command + " " + arg
+    command = command + ' out/' + filename + '.pdf'
+
     process = subprocess.Popen(
-        'wkhtmltopdf out/' + out + '.html -n --print-media-type --disable-toc-back-links --enable-local-file-access --encoding utf-8 out/' + out + '.pdf',
+        command,
         shell=False)
     process.wait()
     print("PDF end in %s seconds" % (time.time() - start_time))
+
+
+if __name__ == '__main__':
+    filename = "out_test"
+    generate_html(folder + "docdata/" + 'toc.json', filename, 0, -1)
+
+    # You can look a test_link.py before to list them if you want
+    # but most of them are 404
+    correct_bad_links(filename)
+
+    generate_pdf(filename)

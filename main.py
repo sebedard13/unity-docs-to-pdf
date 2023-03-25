@@ -16,7 +16,7 @@ def do_page(current_data, main_body, heading, deep=0):
         if link is None or link == "null":
             # Some link does not have a html file but are a parent to multiples children.
             # Create a section with only the title inside
-            current_section = BeautifulSoup("<div><h1>" + current_data["title"] + "</h1></div>", features="lxml").find(
+            current_section = BeautifulSoup("<div><h1>" + current_data["title"] + "</h1></div>", features="html.parser").find(
                 "div")
             current_section.attrs["class"] = "section"
 
@@ -28,7 +28,7 @@ def do_page(current_data, main_body, heading, deep=0):
             filename = folder + link + ".html"
 
             with open(filename, encoding="utf-8") as fp:
-                d = BeautifulSoup(fp, features="lxml")
+                d = BeautifulSoup(fp, features="html.parser")
 
             current_section = d.select(".content-block .section")[0]
 
@@ -64,7 +64,7 @@ def generate_html(json_file, out_filename="out", starts=0, ends=-1):
         f.write(doc.render())
 
     with open('out/' + out_filename + '.html', encoding="utf-8") as fp:
-        appendHtml = BeautifulSoup(fp, features="lxml")
+        appendHtml = BeautifulSoup(fp, features="html.parser")
 
     mainBody = appendHtml.select("main")[0]
 
@@ -155,7 +155,7 @@ def generate_pdf(filename):
 
 
 if __name__ == '__main__':
-    filename = "out_test"
+    filename = "out"
     generate_html(folder + "docdata/" + 'toc.json', filename, 0, -1)
 
     # You can look a test_link.py before to list them if you want

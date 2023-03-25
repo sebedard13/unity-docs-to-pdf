@@ -4,6 +4,7 @@
 /StaticFiles/
 /StaticFilesManual/
 /uploads/
+/svg_to_png/
 
 out/*.html
 out/*.pdf

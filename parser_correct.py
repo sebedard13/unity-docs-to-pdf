@@ -2,6 +2,7 @@ import os
 
 from bs4 import BeautifulSoup
 import subprocess
+from pathlib import Path
 
 def bad_elements(current_section):
     for bad in current_section.select(
@@ -94,20 +95,20 @@ def title(current_section, deep=0, heading="", id_section=""):
 
     selections = current_section.select("h2, h3, h4, h5, h6")
     for h in selections:
-        body = BeautifulSoup("<p></p>", features="lxml")
+        body = BeautifulSoup("<p></p>", features="html.parser")
         body.p.attrs['class'] = h.name
         if "id" in h.attrs.keys():
             body.p.attrs['id'] = h.attrs["id"]
         body.p.contents = h.contents
         h.replaceWith(body.p)
 
-    current_section = BeautifulSoup(str(current_section), features="lxml")
+    current_section = BeautifulSoup(str(current_section), features="html.parser")
 
     selectionsh1 = current_section.select("h1")
     idDone = False
     tag = "h" + str(deep + 1)
     for h in selectionsh1:
-        body = BeautifulSoup("<" + tag + "></" + tag + ">", features="lxml")
+        body = BeautifulSoup("<" + tag + "></" + tag + ">", features="html.parser")
         curr = body.find(tag)
         if not idDone:
             curr.attrs["id"] = id_section
@@ -124,27 +125,29 @@ def title(current_section, deep=0, heading="", id_section=""):
 def img_svg(current_section):
     for img in current_section.select("img[src$='.svg']"):
         src = img.attrs["src"].replace("../", "")
-        output = src.replace(".svg", ".png")
+        output = Path(src.replace(".svg", ".png"))
+        output = Path("svg_to_png") / Path(*output.parts[1:])
         if not os.path.exists(output):
+            Path(*output.parts[:-1]).mkdir(parents=True, exist_ok=True)
             process = subprocess.Popen(
-                "inkscape -z -f " + src + " -e " + output, shell=False)
+                "inkscape " + src + " -o " + str(output), shell=False)
             process.wait()
-        img.attrs["src"] = "../" + output
+        img.attrs["src"] = "../" + str(output)
 
     return current_section
 
 def tooltip(current_section):
     for toolTip in current_section.select(".tooltiptext"):
-        span = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
+        span = BeautifulSoup("<sup></sup>", features="html.parser").find("sup")
         span.attrs["class"] = "indice"
         select = toolTip.select("a")
         for aElement in select:
             if "href" in aElement.attrs.keys() and "Glossary.html" in aElement.attrs["href"]:
-                a = BeautifulSoup("<a>[G]</a>", features="lxml").find("a")
+                a = BeautifulSoup("<a>[G]</a>", features="html.parser").find("a")
                 a.attrs = aElement.attrs
                 span.append(a)
             else:
-                a = BeautifulSoup("<a>[M]</a>", features="lxml").find("a")
+                a = BeautifulSoup("<a>[M]</a>", features="html.parser").find("a")
                 a.attrs = aElement.attrs
                 span.append(a)
         toolTip.replaceWith(span)
@@ -164,13 +167,13 @@ def code(current_section):
 def external_links(current_section):
     for externalA in current_section.select("a:not([href^= '#'])"):
         externalA.attrs["target"] = "_blank"
-        span = BeautifulSoup("<span></span>", features="lxml").find("span")
+        span = BeautifulSoup("<span></span>", features="html.parser").find("span")
 
-        sup = BeautifulSoup("<sup></sup>", features="lxml").find("sup")
+        sup = BeautifulSoup("<sup></sup>", features="html.parser").find("sup")
         sup.string = "[E]"
         sup.attrs["class"] = "indice"
 
-        a = BeautifulSoup(str(externalA), features="lxml").find("a")
+        a = BeautifulSoup(str(externalA), features="html.parser").find("a")
         span.append(a)
         span.append(sup)
         externalA.replaceWith(span)
